@@ -1,0 +1,57 @@
+pipeline {
+    agent any
+    environment {
+        KUBECONFIG ='var/lib/jenkins/.kube/config'
+    }
+    stages {
+        stage('code clone') {
+            steps {
+                git'https://github.com/Snehaldhul/star-agile-banking-finance.git'
+            }
+        }
+        stage('compile code') {
+            steps {
+                sh 'mvn compile'
+            }
+        }
+        stage('test code') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+         stage('QA of code') {
+            steps {
+               sh "mvn pmd:pmd" 
+            }
+        }
+        stage('code package') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+        stage('build docker image') {
+            steps {
+                sh 'docker build -t snehaldhul/finance-image:latest .'
+            }
+        }
+        stage('login dockerhub') {
+            steps {
+                withCredentials([string(credentialsId: 'dockerhubpassword', variable: 'dockerhubpass')]) {
+                sh 'docker login -u snehaldhul -p ${dockerhubpass}'
+                  }
+            }
+        }
+        stage('push docker image') {
+            steps {
+                sh 'docker push snehaldhul/finance-image:latest'
+            }
+        }
+        stage('deploy on k8s') {
+            steps {
+                sh 'kubectl apply -f k8service.yml --validate=false'
+                sh 'kubectl get svc'
+
+            }
+        }
+    }
+}
